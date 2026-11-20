@@ -1,30 +1,27 @@
-/* Skeezad: drifting embers inside the cathedral window. */
-(() => {
+/* Nocturne: ravens, moving light and depth, rendered locally. */
+(()=>{
  const canvas=document.querySelector('#nexus'),ctx=canvas.getContext('2d');
- const container=canvas.parentElement,toggle=document.querySelector('#motion-toggle');
- const preference=matchMedia('(prefers-reduced-motion: reduce)');
+ const scene=document.querySelector('.cathedral-hero'),preference=matchMedia('(prefers-reduced-motion: reduce)');
  let w=0,h=0,frame=0,previous=0,time=0,visible=true,paused=preference.matches;
- let pointer={x:0,y:0},smooth={x:0,y:0};
- const embers=Array.from({length:42},(_,i)=>({x:((i*137.508)%100)/100,y:((i*73.17)%100)/100,size:i%7===0?1.4:.65,speed:.009+(i%5)*.003,phase:i*2.39}));
+ const birds=Array.from({length:7},(_,i)=>({phase:i*.143,y:.2+(i%4)*.055,size:4+(i%3)*2,speed:.018+i*.001}));
  function render(){
   ctx.clearRect(0,0,w,h);
-  embers.forEach(p=>{
-   const y=1-((p.y+time*p.speed)%1),x=p.x+Math.sin(time*.15+p.phase)*.035+smooth.x*.025;
-   const alpha=Math.sin(y*Math.PI)*(.2+(Math.sin(time*.6+p.phase)+1)*.17);
-   ctx.fillStyle=`rgba(205,149,165,${alpha})`;
-   ctx.beginPath();ctx.arc(w*(.12+x*.76),h*(.08+y*.78),p.size,0,Math.PI*2);ctx.fill();
+  const light=ctx.createLinearGradient(w*.74,0,w*.35,h);
+  light.addColorStop(0,'rgba(195,151,145,.045)');light.addColorStop(.7,'rgba(195,151,145,0)');
+  ctx.fillStyle=light;ctx.beginPath();ctx.moveTo(w*.77,0);ctx.lineTo(w*.89,0);ctx.lineTo(w*.54,h);ctx.lineTo(w*.06,h);ctx.closePath();ctx.fill();
+  birds.forEach((b,i)=>{
+   const x=((b.phase+time*b.speed)%1.4-.2)*w,y=(b.y+Math.sin(time*.23+i)*.027)*h;
+   const flap=Math.sin(time*5+i*1.7),size=b.size*(w<760?.65:1);
+   ctx.save();ctx.translate(x,y);ctx.rotate(-.08+Math.sin(time*.5+i)*.1);ctx.fillStyle='rgba(8,6,9,.8)';
+   ctx.beginPath();ctx.moveTo(0,2);ctx.quadraticCurveTo(-size*.7,-size*(.3+flap),-size*2,-size*(.1+flap));ctx.quadraticCurveTo(-size,2,-1,4);ctx.lineTo(0,7);ctx.lineTo(1,4);ctx.quadraticCurveTo(size,2,size*2,-size*(.1+flap));ctx.quadraticCurveTo(size*.7,-size*(.3+flap),0,2);ctx.fill();ctx.restore();
   });
  }
- function resize(){const r=container.getBoundingClientRect();w=r.width;h=r.height;const d=Math.min(devicePixelRatio||1,1.5);canvas.width=w*d;canvas.height=h*d;ctx.setTransform(d,0,0,d,0,0);render();}
- function loop(now){frame=0;if(paused||!visible||document.hidden)return;if(now-previous>32){time+=Math.min((now-previous)/1000,.06);previous=now;smooth.x+=(pointer.x-smooth.x)*.03;smooth.y+=(pointer.y-smooth.y)*.03;render();}frame=requestAnimationFrame(loop);}
+ function resize(){const r=scene.getBoundingClientRect();w=r.width;h=r.height;const d=Math.min(devicePixelRatio||1,1.5);canvas.width=w*d;canvas.height=h*d;ctx.setTransform(d,0,0,d,0,0);render();}
+ function loop(now){frame=0;if(paused||!visible||document.hidden)return;if(now-previous>32){time+=Math.min((now-previous)/1000,.06);previous=now;render();}frame=requestAnimationFrame(loop);}
  function resume(){if(!frame&&!paused&&visible&&!document.hidden){previous=performance.now();frame=requestAnimationFrame(loop);}}
- function setPaused(value){paused=value;toggle.setAttribute('aria-pressed',String(paused));toggle.setAttribute('aria-label',paused?'Play animation':'Pause animation');toggle.textContent=paused?'▷':'Ⅱ';document.querySelector('.cathedral').style.animationPlayState=paused?'paused':'running';document.querySelector('.blood-moon').style.animationPlayState=paused?'paused':'running';if(paused){cancelAnimationFrame(frame);frame=0;}else resume();}
- toggle.addEventListener('click',()=>setPaused(!paused));
- window.addEventListener('skeezad:motion',e=>setPaused(e.detail.paused));
- container.addEventListener('pointermove',e=>{const r=container.getBoundingClientRect();pointer={x:(e.clientX-r.left)/r.width-.5,y:(e.clientY-r.top)/r.height-.5};document.querySelector('#coord-x').textContent=pointer.x.toFixed(2);document.querySelector('#coord-y').textContent=pointer.y.toFixed(2);});
- container.addEventListener('pointerleave',()=>pointer={x:0,y:0});
- new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(!visible){cancelAnimationFrame(frame);frame=0;}else resume();}).observe(container);
+ function stop(value){paused=value;if(paused){cancelAnimationFrame(frame);frame=0;}else resume();}
+ window.addEventListener('skeezad:motion',e=>stop(e.detail.paused));
+ new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(!visible){cancelAnimationFrame(frame);frame=0;}else resume();}).observe(scene);
  document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else resume();});
- preference.addEventListener('change',e=>setPaused(e.matches));
- new ResizeObserver(resize).observe(container);resize();setPaused(paused);
+ preference.addEventListener('change',e=>stop(e.matches));new ResizeObserver(resize).observe(scene);resize();resume();
 })();

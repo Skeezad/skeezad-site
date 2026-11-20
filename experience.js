@@ -1,111 +1,25 @@
-/* Skeezad / cinematic presentation, motion controls and accessible film player. */
-(() => {
-  const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  const clips = [...document.querySelectorAll('[data-auto-video]')];
-  const dialog = document.querySelector('#film-dialog');
-  const player = document.querySelector('#film-player');
-  const toggle = document.querySelector('#ambient-toggle');
-  let backgroundPaused = preference.matches;
-  let lastTrigger = null;
-
-  function updatePlayback() {
-    const stop = backgroundPaused || document.hidden || dialog.open;
-    clips.forEach(video => {
-      if (!stop && video.dataset.visible === 'true') {
-        video.muted = true;
-        video.play().catch(() => {});
-      } else video.pause();
-    });
-    document.body.classList.toggle('motion-paused', backgroundPaused);
-    if (toggle) {
-      toggle.setAttribute('aria-pressed', String(backgroundPaused));
-      toggle.textContent = backgroundPaused ? '▷ RESUME BACKGROUND MOTION' : 'Ⅱ PAUSE BACKGROUND MOTION';
-    }
-    window.dispatchEvent(new CustomEvent('skeezad:motion', {detail: {paused: stop}}));
-  }
-  const visibility = new IntersectionObserver(entries => {
-    entries.forEach(({target, isIntersecting}) => target.dataset.visible = String(isIntersecting));
-    updatePlayback();
-  }, {threshold: .05});
-  clips.forEach(video => visibility.observe(video));
-  toggle?.addEventListener('click', () => {backgroundPaused = !backgroundPaused; updatePlayback();});
-  preference.addEventListener('change', e => {backgroundPaused = e.matches; updatePlayback();});
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && dialog.open) player.pause();
-    updatePlayback();
-  });
-  document.querySelectorAll('[data-film]').forEach(trigger => {
-    trigger.addEventListener('click', () => {
-      lastTrigger = trigger;
-      document.querySelector('#film-dialog-title').textContent = trigger.dataset.title;
-      player.src = trigger.dataset.film;
-      player.poster = trigger.dataset.film.replace('.mp4', '-poster.webp');
-      dialog.showModal();
-      document.body.classList.add('film-open');
-      updatePlayback();
-      player.play().catch(() => {});
-    });
-  });
-  document.querySelector('#close-film').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', e => {
-    if (e.target !== dialog) return;
-    const rect = dialog.getBoundingClientRect();
-    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) dialog.close();
-  });
-  dialog.addEventListener('close', () => {
-    player.pause();
-    player.removeAttribute('src');
-    player.load();
-    document.body.classList.remove('film-open');
-    updatePlayback();
-    lastTrigger?.focus({preventScroll: true});
-  });
-
-  // Stagger adjacent cards without delaying an entire section.
-  document.querySelectorAll('.expertise-card').forEach((card, i) => card.style.setProperty('--reveal-delay', `${i % 4 * 80}ms`));
-  document.querySelectorAll('.film-card').forEach((card, i) => card.style.setProperty('--reveal-delay', `${i * 120}ms`));
-  const cards = [...document.querySelectorAll('.expertise-card')];
-  const halo = document.querySelector('.pointer-halo');
-  if (matchMedia('(pointer: fine)').matches && !preference.matches) {
-    cards.forEach(card => {
-      let pending = 0;
-      card.addEventListener('pointermove', e => {
-        if (pending || backgroundPaused) return;
-        pending = requestAnimationFrame(() => {
-          const rect = card.getBoundingClientRect();
-          const x = (e.clientX - rect.left) / rect.width;
-          const y = (e.clientY - rect.top) / rect.height;
-          card.style.setProperty('--spot-x', `${x * 100}%`);
-          card.style.setProperty('--spot-y', `${y * 100}%`);
-          card.style.transform = `perspective(1000px) rotateX(${(0.5-y)*4}deg) rotateY(${(x-.5)*5}deg) translateY(-7px)`;
-          pending = 0;
-        });
-      });
-      card.addEventListener('pointerleave', () => {
-        cancelAnimationFrame(pending); pending = 0; card.style.transform = '';
-      });
-    });
-    let pendingPointer = 0;
-    window.addEventListener('pointermove', e => {
-      if (pendingPointer || backgroundPaused) return;
-      pendingPointer = requestAnimationFrame(() => {
-        halo.style.left = e.clientX + 'px'; halo.style.top = e.clientY + 'px'; halo.style.opacity = '1'; pendingPointer = 0;
-      });
-    }, {passive:true});
-    document.documentElement.addEventListener('pointerleave', () => {halo.style.opacity = '0';});
-  }
-  const band = document.querySelector('.perspective-band');
-  const words = document.querySelector('.perspective-inner');
-  let bandVisible = false, scrollFrame = 0;
-  new IntersectionObserver(entries => {bandVisible = entries[0].isIntersecting;}, {rootMargin:'80px'}).observe(band);
-  window.addEventListener('scroll', () => {
-    if (!bandVisible || scrollFrame || backgroundPaused || preference.matches) return;
-    scrollFrame = requestAnimationFrame(() => {
-      const rect = band.getBoundingClientRect();
-      const progress = Math.max(-1, Math.min(1, (rect.top + rect.height / 2 - innerHeight / 2) / innerHeight));
-      words.style.transform = `translateY(${progress * 24}px) rotate(${progress * -1.4}deg)`;
-      scrollFrame = 0;
-    });
-  }, {passive:true});
-  updatePlayback();
+/* One shared motion preference for cinema, atmosphere and interface. */
+(()=>{
+ const preference=matchMedia('(prefers-reduced-motion: reduce)');
+ const videos=[...document.querySelectorAll('[data-auto-video]')];
+ const ambient=document.querySelector('#ambient-toggle'),toggle=document.querySelector('#motion-toggle');
+ let paused=preference.matches;
+ function update(){
+  const stop=paused||document.hidden;
+  videos.forEach(video=>{if(!stop&&video.dataset.visible==='true'){video.muted=true;video.play().catch(()=>{});}else video.pause();});
+  document.body.classList.toggle('motion-paused',stop);
+  ambient.setAttribute('aria-pressed',String(paused));ambient.textContent=paused?'RESUME THE SCENE':'PAUSE THE SCENE';
+  toggle.setAttribute('aria-pressed',String(paused));toggle.setAttribute('aria-label',paused?'Resume scene animation':'Pause scene animation');toggle.textContent=paused?'\u25b7':'\u2161';
+  window.dispatchEvent(new CustomEvent('skeezad:motion',{detail:{paused:stop}}));
+ }
+ function flip(){paused=!paused;update();}
+ ambient.addEventListener('click',flip);toggle.addEventListener('click',flip);
+ const observer=new IntersectionObserver(entries=>{entries.forEach(e=>e.target.dataset.visible=String(e.isIntersecting));update();},{threshold:.03});videos.forEach(v=>observer.observe(v));
+ preference.addEventListener('change',e=>{paused=e.matches;update();});document.addEventListener('visibilitychange',update);
+ const scene=document.querySelector('.cathedral-hero');
+ if(matchMedia('(pointer:fine)').matches){
+  scene.addEventListener('pointermove',e=>{if(paused)return;const r=scene.getBoundingClientRect();scene.style.setProperty('--scene-x',((e.clientX-r.left)/r.width-.5)*-10+'px');scene.style.setProperty('--scene-y',((e.clientY-r.top)/r.height-.5)*-6+'px');},{passive:true});
+  scene.addEventListener('pointerleave',()=>{scene.style.setProperty('--scene-x','0px');scene.style.setProperty('--scene-y','0px');});
+ }
+ update();
 })();
