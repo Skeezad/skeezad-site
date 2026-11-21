@@ -1,15 +1,10 @@
 const $ = s => document.querySelector(s);
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const started=Date.now();
-document.body.classList.add('js-ready');
 const nav=$('#navigation'),menu=$('.menu-toggle');
 menu.addEventListener('click',()=>{const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',String(open));});
 nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{nav.classList.remove('open');menu.setAttribute('aria-expanded','false');}));
-const reveals=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');reveals.unobserve(e.target);}}),{threshold:.07});
-document.querySelectorAll('.reveal').forEach(el=>reveals.observe(el));
 const sectionObserver=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)nav.querySelectorAll('a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id));}),{rootMargin:'-20% 0px -50% 0px'});
 document.querySelectorAll('#about,#expertise,#lab').forEach(el=>sectionObserver.observe(el));
-window.addEventListener('scroll',()=>{const max=document.documentElement.scrollHeight-innerHeight;$('#reading-progress').style.width=(max>0?scrollY/max*100:0)+'%';},{passive:true});
 function updateClock(){const time=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Asia/Tehran'}).format(new Date());$('#local-clock').textContent=time+' / TEHRAN';const seconds=Math.floor((Date.now()-started)/1000);$('#uptime').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');}updateClock();setInterval(updateClock,1000);
 const terminalHome=$('#terminal').parentElement;
 function setTerminalFullscreen(expand){const terminal=$('#terminal');terminal.classList.toggle('fullscreen',expand);if(expand)document.body.append(terminal);else terminalHome.append(terminal);}
@@ -40,4 +35,4 @@ default:print('Unknown command. Try help — it is a good place to start.');}}
 async function submitCommand(raw){if(!raw)return;history.push(raw);historyIndex=history.length;print('skeezad ~ → '+raw,'command-line');try{await runCommand(raw);}catch{print('Something went wrong. Try another command.');}terminalLog.scrollTop=terminalLog.scrollHeight;}
 $('#terminal-form').addEventListener('submit',async e=>{e.preventDefault();const raw=terminalInput.value.trim();terminalInput.value='';await submitCommand(raw);});
 terminalInput.addEventListener('keydown',e=>{if(e.key==='ArrowUp'){e.preventDefault();historyIndex=Math.max(0,historyIndex-1);terminalInput.value=history[historyIndex]||'';}if(e.key==='ArrowDown'){e.preventDefault();historyIndex=Math.min(history.length,historyIndex+1);terminalInput.value=history[historyIndex]||'';}if(e.key==='Tab'){e.preventDefault();const name=commandNames.find(n=>n.startsWith(terminalInput.value));if(name)terminalInput.value=name;}});
-document.querySelectorAll('[data-command]').forEach(button=>button.addEventListener('click',()=>{submitCommand(button.dataset.command);if(innerWidth<768)$('#terminal').scrollIntoView({behavior:reduced?'instant':'smooth',block:'center'});}));
+document.querySelectorAll('[data-command]').forEach(button=>button.addEventListener('click',()=>{submitCommand(button.dataset.command);if(innerWidth<768)$('#terminal').scrollIntoView({behavior:'instant',block:'center'});}));
